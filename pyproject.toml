@@ -11,5 +11,20 @@ dependencies = [
     "pandas>=2.3.0",
     "pygithub>=2.6.1",
     "pyro-ppl>=1.9.1",
+    "pytest>=8.4.1",
     "torch>=2.7.1",
 ]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]                 # tell setuptools that sources live in src/
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]   # auto‑discover packages under src/
+where = ["src"]
+
+[project.scripts]
+owner = "trajpyro.agents.owner:main"
+smoke = "trajpyro.smoke:main"

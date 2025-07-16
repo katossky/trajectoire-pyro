@@ -36,8 +36,7 @@ def beta_bernoulli_demo(num_obs=50, true_p=0.7):
     est_p = alpha / (alpha + beta)
     return alpha, beta, est_p
 
-
-if __name__ == "__main__":
+def main() :
 
     print("Hello from trajectoire-pyro!")
 
@@ -66,3 +65,6 @@ if __name__ == "__main__":
     assert math.isclose(p_hat, 0.7, abs_tol=0.1), "Pyro inference looks wrong!"
 
     print("\n✅  Environment looks good — container is ready for AutoGen.\n")
+
+if __name__ == "__main__":
+    main()

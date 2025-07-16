@@ -19,5 +19,5 @@ RUN uv sync --locked
 ENV PYTORCH_ENABLE_MPS_FALLBACK=1
 
 # Default run
-ENTRYPOINT ["uv", "run"]
-CMD ["main.py"]
+ENTRYPOINT ["uv", "run", "--"]
+CMD ["smoke"]
