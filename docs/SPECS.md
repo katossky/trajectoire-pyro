@@ -42,7 +42,7 @@ This document outlines architectural choices for the project.
 
 - **Data specification.** Data are made of two separate tables. One at the individual level giving permanent characteristics. One at the career level, with one line per id per year, giving changing occupation. For instance gender should be added to the first table, whereas income should be added to the second one. The exact variables depend on the data generator.
 
-    **Individual table**
+    **Individuals table**
 
     |  id |      birth |      death |
     |-----|------------|------------|
@@ -62,7 +62,7 @@ This document outlines architectural choices for the project.
     |   1 | 2010 | retirement |
     | ... |  ... |        ... |
 
-- **Data storage format.** Individual and career data are stored as Parquet files. Model parametrization is stored as `.yaml`. **[Open question]** Is there a need to store data generators (either synthetic data generators or empiriacl generators) ? And if yes in which format?
+- **Data storage format.** Individual and career data are stored as Parquet files. Ids are integers. Birth and death are dates. Years are integers. **[Open question]** Is there a need to store data generators (either synthetic data generators or empiriacl generators) ? And if yes in which format?
 
 - **Data versioning.** Config files for pipelines are expected to be permanent. (Deletion means we do not want the corresponding pipeline to be kept.) Snakefile generates locally the corresponding assets (synthetic data, parameters, reports...). **[Open question]** Is there nevertheless a need to store intermediate results with version control?
 
@@ -71,6 +71,8 @@ This document outlines architectural choices for the project.
 - **Generative parameters.** Generative parameters should be realistic but not necessarily true and should incude variations. For instance, death simulation should rely on death-rate per age, year of brith, gender, etc. When needed, these putative real-life aggregated statistics should be stored in multiple scenarios inside `hyps`. The counterpart micro-simulation parameters based on these aggregates should be stored in `exps/1a-config-hidden`. **[Open question]** Later, we will have to distinguish observed time series from (non-observed) hypotheses for proejected careers.
 
 - **Simplistic 4-states model.** In this 4 state model, careers are described by one and only one state per year : inactivity (including childhood, studies, unemployment, disease, etc.), employment (including civil service, head of business, self-emplyed, etc.), retirement and death. Retirement is absorbing relative to inactivity and employment. Death is absorbing relative to all other states. We voluntarily neglect migrations, gender, income, etc. and suppose transitions only depend on current state.
+
+    **Dat:** the data corresponding to this model should have only one extra column for state in the career table, where state is stored as character and have three possible values: `"inactivity"`, `"employment"` and `"retirement"`, as `death` is deduced from the death date from the individuals table.
 
     **Configuration :** year the simulation begins, year the simulation ends, number of persons alive per age at the begining of the simulation, occupation share per age, number of births per year, death rate per age, transition between states
 
