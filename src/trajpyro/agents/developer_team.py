@@ -115,8 +115,8 @@ async def run(task):
 def main():
 
     parser = argparse.ArgumentParser(
-        prog="owner.py",
-        description="Run the Owner agent",
+        prog="developer_team.py",
+        description="Run the Developer Team agent",
     )
 
     parser.add_argument(
@@ -124,7 +124,7 @@ def main():
         "--task",
         metavar="TEXT",
         type=str,
-        default=None,
+        default="Pick a scheduled issue and solve it.",
         help="Specific task to give to the Owner agent",
     )
     

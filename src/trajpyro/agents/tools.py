@@ -4,6 +4,7 @@ from typing import List, Dict, Optional
 from typing_extensions import Annotated
 
 from github import Github, Issue
+from git import Repo
 
 import subprocess
 
@@ -65,7 +66,7 @@ def create_directory(
 ) :
     """Create a new directory."""
     if Path(path).exists() :
-        raise FileExistsError("File or directory {path} already exists")
+        raise FileExistsError(f"File or directory {path} already exists")
     else :
         Path(path).mkdir()
 
@@ -212,11 +213,12 @@ def open_pull_request(
 
 # ----------- git helpers ----------------------------
 
-def create_and_switch_branch(branch = Annotated[str, "The new branch to create"]) -> None :
+def create_and_switch_branch(branch: Annotated[str, "The new branch to create"]) -> None :
     """Create a new """
-    _repo.git.checkout(_default_branch)
-    _repo.git.pull("origin", _default_branch)
-    _repo.git.checkout("-b", branch)
+    repo = Repo()
+    repo.git.checkout(_default_branch)
+    repo.git.pull("origin", _default_branch)
+    repo.git.checkout("-b", branch)
 
 def diff(
     path: Annotated[Optional[str], "Path to file or directory (optional, default is full repo)"] = None
