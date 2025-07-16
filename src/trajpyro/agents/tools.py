@@ -1,10 +1,11 @@
 import os
 from pathlib import Path
-import re
 from typing import List, Dict, Optional
 from typing_extensions import Annotated
 
-from github import Github, ContentFile, Label, Issue
+from github import Github, Issue
+
+import subprocess
 
 # ---------------------------------------------------------------------------
 # Initialise GitHub handle ----------------------------------------------------
@@ -21,16 +22,6 @@ _repo = _g.get_repo(_REPO_FULLNAME)
 _default_branch = _repo.default_branch
 
 # ─────────────────────────── Helper utilities ───────────────────────────
-
-def _update_file(file_obj: ContentFile.ContentFile, new_content: str, message: str) -> None:
-    """Commit *new_content* back to *file_obj* with *message*."""
-    _repo.update_file(
-        path=file_obj.path,
-        message=message,
-        content=new_content,
-        sha=file_obj.sha,
-        branch=_default_branch,
-    )
 
 def _issue_dict(iss: Issue.Issue) -> Dict:
     return {
@@ -88,6 +79,36 @@ def write_file(
     elif content is not None :
         with open(path, 'w') as f:
             f.write(content)
+
+def delete_file(
+    path: Annotated[str, "Path to the file to be deleted relative to root"]
+) -> None:
+    """Delete file at given *path*."""
+    path_obj = Path(path)
+    if not path_obj.exists() or not path_obj.is_file():
+        raise FileNotFoundError(f"{path} does not exist or is not a file")
+    path_obj.unlink()
+
+def insert_line(
+    path: Annotated[str, "Path to file"],
+    line_number: Annotated[int, "Line number after which to insert the new line"],
+    new_line: Annotated[str, "New line to insert"]
+) -> None:
+    """Insert *new_line* after *line_number* in file *path*."""
+    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    lines.insert(line_number, new_line)
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+def delete_line(
+    path: Annotated[str, "Path to file"],
+    line_number: Annotated[int, "Line number to delete"]
+) -> None:
+    """Delete line *line_number* (0-indexed) from file *path*."""
+    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    if not (0 <= line_number < len(lines)):
+        raise IndexError("Line number out of range")
+    del lines[line_number]
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 # ───────────────────────────────────────── Issue helpers ───────────────
 
@@ -177,55 +198,42 @@ def remove_label(
     iss.remove_from_labels(label)
     return [l.name for l in iss.labels]
 
-# ────────────────────────────────── README mutation helpers ─────────────────
+# ----------- merge requests ----------------------------------
 
-# Heading pattern with ID in curly‑brace, e.g. "## Statistics {#stats}"
-_HEADING_ID_RE = re.compile(r"^(?P<hashes>#{1,6})\s+[^#{}]*\{#(?P<id>[A-Za-z0-9_.-]+)\}\s*$")
+def open_pull_request(
+    branch: Annotated[str, "Name of the feature branch"],
+    title: Annotated[str, "Title of the pull request"],
+    body: Annotated[str, "Description of the pull request"],
+    issue_number: Annotated[Optional[int], "Optional issue number to link PR"] = None,
+) -> None:
+    """Open a pull request on GitHub for *branch*, optionally linking issue *issue_number*."""
+    pr_body = f"Closes #{issue_number}\n\n{body}" if issue_number else body
+    _repo.create_pull(title=title, body=pr_body, head=branch, base=_default_branch)
 
+# ----------- git helpers ----------------------------
 
-def _find_heading_index(lines: List[str], section_id: str) -> Optional[int]:
-    """Return index of heading line matching *section_id* or None."""
-    for i, ln in enumerate(lines):
-        m = _HEADING_ID_RE.match(ln)
-        if m and m.group("id") == section_id:
-            return i
-    return None
+def create_and_switch_branch(branch = Annotated[str, "The new branch to create"]) -> None :
+    """Create a new """
+    _repo.git.checkout(_default_branch)
+    _repo.git.pull("origin", _default_branch)
+    _repo.git.checkout("-b", branch)
 
+def diff(
+    path: Annotated[Optional[str], "Path to file or directory (optional, default is full repo)"] = None
+) -> str:
+    """Return git diff of the whole repo or the given path."""
+    args = ["git", "diff"]
+    if path:
+        args.append(path)
+    return subprocess.check_output(args).decode()
 
-def append_readme(section: str, point: str) -> None:
-    """Append markdown bullet *point* to the heading whose id == *section*.
-
-    The heading must follow the GitHub‑flavoured pattern `## Title {#id}`.
-    Creates the section at the end of the document if it does not exist.
-    """
-    cf = _get_readme()
-    lines = cf.decoded_content.decode().splitlines()
-
-    idx = _find_heading_index(lines, section)
-    bullet = f"- {point}"
-
-    if idx is None:
-        # section missing → create new H2 at end
-        lines.extend(["", f"## {section.title()} {{#{section}}}", bullet, ""])
-    else:
-        # insert after existing content until next heading or EOF
-        insert_at = idx + 1
-        while insert_at < len(lines) and not lines[insert_at].startswith("#"):
-            insert_at += 1
-        lines.insert(insert_at, bullet)
-
-    new_body = "\n".join(lines)
-    _update_file(cf, new_body, f"docs(readme): append bullet to section #{section}")
-
-
-def create_readme_section(title: str, id: str) -> None:
-    """Create a new H2 section formatted as `## title {#id}` if it doesn't exist."""
-    cf = _get_readme()
-    lines = cf.decoded_content.decode().splitlines()
-
-    if _find_heading_index(lines, id) is not None:
-        return  # already present
-
-    lines.extend(["", f"## {title} {{#{id}}}", ""])
-    new_body = "\n".join(lines)
-    _update_file(cf, new_body, f"docs(readme): add section {title} (# {id})")
+def commit_and_push(
+    user: Annotated[str, "Git user name for the commit"],
+    message: Annotated[str, "Commit message"]
+) -> None:
+    """Commit all changes and push them with *user* as the author."""
+    subprocess.check_call(["git", "config", "user.name", user])
+    subprocess.check_call(["git", "config", "user.email", f"{user}@users.noreply.github.com"])
+    subprocess.check_call(["git", "add", "."])
+    subprocess.check_call(["git", "commit", "-m", message])
+    subprocess.check_call(["git", "push"])

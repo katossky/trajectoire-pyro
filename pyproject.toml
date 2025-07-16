@@ -28,3 +28,4 @@ where = ["src"]
 [project.scripts]
 owner = "trajpyro.agents.owner:main"
 smoke = "trajpyro.smoke:main"
+team  = "trajpyro.agents.developer_team:main"

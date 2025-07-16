@@ -2,13 +2,11 @@ import os
 import asyncio
 import argparse
 from autogen_agentchat.agents import AssistantAgent
-from autogen_ext.models.openai import OpenAIChatCompletionClient
 from autogen_agentchat.conditions import MaxMessageTermination, TextMentionTermination
 from autogen_agentchat.ui import Console
 from autogen_agentchat.teams import RoundRobinGroupChat
 
-_OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-
+from .utils import get_client
 # ------------------------------------------------------------
 # Tool layer – all exported GitHub helpers
 # ------------------------------------------------------------
@@ -62,27 +60,9 @@ TOOLS = [
     remove_label,
 ]
 
-model_client = OpenAIChatCompletionClient(
-    model="moonshotai/kimi-k2",
-    base_url="https://openrouter.ai/api/v1",
-    api_key=_OPENROUTER_API_KEY,
-    model_info = {
-        "context_window":    131_072,
-        "max_output_tokens": 16_384,
-        # Interface capabilities
-        "supports_stream":    True,
-        "function_calling":   True,
-        "json_output":        False,
-        "structured_output":  False,
-        # Modalities & taxonomy
-        "vision":             False,
-        "family":             "Kimi",
-    }
-)
-
 agent = AssistantAgent(
     name = "owner",
-    model_client = model_client,
+    model_client = get_client(),
     system_message = SYSTEM_MSG,
     # system_message = "You are product owner of this project. Write TERMINATE when task is done.",
     tools = TOOLS,
