@@ -264,11 +264,10 @@ def commit_and_push_factory(user: Annotated[str, "Git user name for the commit"]
 
 def run_module(
     module: Annotated[str, "module path"],
-    *args: Annotated[str, "additional CLI arguments"],
+    args: Annotated[list[str], "additional arguments"] = [],
 ) :
     """Run module *module*, possibly with arguments"""
-    cmd: list[str] = [sys.executable, module, *map(str, args)]
-    subprocess.run(cmd, check=True)
+    subprocess.run([sys.executable, "-m", module] + args, check=True)
 
 def run_tests(path: Annotated[str, "test dir or test file path"] = "tests") :
     """Run the test suite for **path** dir or file"""

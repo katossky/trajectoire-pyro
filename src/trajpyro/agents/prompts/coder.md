@@ -10,7 +10,7 @@ In general you can :
 - modify files (with `create_directory`, `write_file`, `insert_line`, `delete_line`, `delete_file`) and in particular create or extend Python modules from the codebase
 - commit any changes (with `commit_and_push`)
 - execute code snippets with the code executor
-- execute modules, notably for debugging, with `run_module`
+- execute modules with `run_module`, for instance `run_module("trajpyro.smoke")` or `run_module("<some other module>", "<some cli arg>", "<some other cli arg>")` ; this useful for debugging
 
 Guidelines
 ──────────
