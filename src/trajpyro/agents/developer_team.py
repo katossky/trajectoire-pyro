@@ -5,10 +5,45 @@ import argparse
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.teams import RoundRobinGroupChat
 from autogen_agentchat.ui import Console
+from autogen_agentchat.base import TerminationCondition, TerminatedException
 from autogen_agentchat.conditions import MaxMessageTermination, TextMentionTermination
 from autogen_agentchat.tools import TeamTool
 from autogen_ext.code_executors.local import LocalCommandLineCodeExecutor
 from autogen_ext.tools.code_execution import PythonCodeExecutionTool
+from autogen_agentchat.messages import StopMessage
+
+class ConsecutiveEmptyTermination(TerminationCondition):
+    """Stop after N blank messages in a row (default: 2)."""
+
+    def __init__(self, n: int = 2):
+        super().__init__()
+        self._terminated = False
+        self.n = n
+        self._streak = 0                   # local counter
+    
+    @property
+    def terminated(self) -> bool:
+        return self._terminated
+
+    async def reset(self) -> None:
+        self._terminated = False
+
+    async def __call__(self, events):            # events = the ‘delta’ since last check
+        if self._terminated:
+            raise TerminatedException("Termination condition has already been reached")
+        for ev in events:
+            txt = getattr(ev, "content", None)
+            if not txt or str(txt).strip() == "":
+                self._streak += 1
+            else:
+                self._streak = 0
+        if self._streak >= self.n:         # rule satisfied → ask the team to stop
+            self._streak = 0               # (optional) reset for next run
+            return StopMessage(
+                content=f"{self.n} consecutive empty messages",
+                source="ConsecutiveEmptyTermination",
+            )
+        
 
 from .utils import get_client, get_prompt
 
@@ -58,7 +93,7 @@ coder_base = AssistantAgent(
 
 coder = RoundRobinGroupChat(
     [coder_base],
-    termination_condition = TextMentionTermination("DONE") | MaxMessageTermination(50),
+    termination_condition = TextMentionTermination("DONE") | MaxMessageTermination(50) | ConsecutiveEmptyTermination(n=2),
 )
 
 tester_base = AssistantAgent(
@@ -82,7 +117,7 @@ tester_base = AssistantAgent(
 
 tester = RoundRobinGroupChat(
     [tester_base],
-    termination_condition = TextMentionTermination("DONE") | MaxMessageTermination(50),
+    termination_condition = TextMentionTermination("DONE") | MaxMessageTermination(50) | ConsecutiveEmptyTermination(n=2),
 )
 
 manager = AssistantAgent(
@@ -113,7 +148,7 @@ manager = AssistantAgent(
 
 devloper_team = RoundRobinGroupChat(
     [manager],
-    termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(100),
+    termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(200),
 )
 
 # ------------------------------------------------------------

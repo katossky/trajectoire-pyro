@@ -9,6 +9,8 @@ RUN apt-get update && \
     apt-get install -y build-essential git && \
     rm -rf /var/lib/apt/lists/*
 
+RUN git config --global --add --bool push.autoSetupRemote true
+
 # Python deps (CPU wheels)
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-install-project
