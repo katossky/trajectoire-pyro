@@ -1,0 +1,5 @@
+This is a dummy file created at the project root.
+
+Purpose: Demonstration file for testing purposes.
+Created: 2024-12-19
+Content: Minimal placeholder content with basic metadata.

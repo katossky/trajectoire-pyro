@@ -8,6 +8,18 @@ from git import Repo
 
 import subprocess
 
+# ------- Project root location helper --------------
+
+_root = None
+
+p = Path(__file__).resolve()
+for parent in (p, *p.parents):
+    if (parent / "pyproject.toml").exists() or (parent / ".git").exists():
+        _root = parent
+
+if _root is None :
+    raise RuntimeError("Cannot locate the project root")
+
 # ---------------------------------------------------------------------------
 # Initialise GitHub handle ----------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -39,10 +51,12 @@ def list_directories(
     path: Annotated[str, "Directory path relative to root"] = None
 ) -> List[str]:
     """Return directories inside *path* (non-recursive)."""
-    if path == "" :
-        path = None
-    paths = [Path(path, p) if path else Path(p) for p in os.listdir(path)]
-    dirs = [str(p) for p in paths if p.is_dir()]
+    if path == "" or path is None :
+        path = Path(_root)
+    else :
+        path = Path(_root, path)
+    paths = [Path(path, p) for p in os.listdir(path)]
+    dirs = [str(p.relative_to(path)) for p in paths if p.is_dir()]
     return [d for d in dirs if not d.startswith(".")]
 
 def list_files(
@@ -51,7 +65,7 @@ def list_files(
     """Return the file paths at *path* (non‑recursive)."""
     if path == "" :
         path = None
-    paths = [Path(path, p) if path else Path(p) for p in os.listdir(path)]
+    paths = [Path(_root, path, p) if path else Path(p) for p in os.listdir(path)]
     files = [str(p) for p in paths if not p.is_dir()]
     return [f for f in files if not f.startswith(".")]
 
@@ -59,33 +73,35 @@ def read_file(
     path: Annotated[str, "File path relative to root"] = None
 ) -> str:
     """Read file at *path*."""
-    return Path(path).read_text(encoding="utf-8")
+    return Path(_root, path).read_text(encoding="utf-8")
 
 def create_directory(
     path: Annotated[str, "Directory path relative to root"] = None
 ) :
     """Create a new directory."""
-    if Path(path).exists() :
+    if Path(_root, path).exists() :
         raise FileExistsError(f"File or directory {path} already exists")
     else :
-        Path(path).mkdir()
+        Path(_root, path).mkdir()
+    return Path(_root, path)
 
 def write_file(
     path: Annotated[str, "File path relative to root"] = None,
     content: Annotated[str, "Content of the file"] = None
 ) :
     """Create a new text file."""
-    if Path(path).exists() :
+    if Path(_root, path).exists() :
         raise FileExistsError(f"File or directory {path} already exists")
     elif content is not None :
-        with open(path, 'w') as f:
+        with Path(_root, path).open('w') as f:
             f.write(content)
+    return Path(_root, path)
 
 def delete_file(
     path: Annotated[str, "Path to the file to be deleted relative to root"]
 ) -> None:
     """Delete file at given *path*."""
-    path_obj = Path(path)
+    path_obj = Path(_root, path)
     if not path_obj.exists() or not path_obj.is_file():
         raise FileNotFoundError(f"{path} does not exist or is not a file")
     path_obj.unlink()
@@ -96,20 +112,20 @@ def insert_line(
     new_line: Annotated[str, "New line to insert"]
 ) -> None:
     """Insert *new_line* after *line_number* in file *path*."""
-    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    lines = Path(_root, path).read_text(encoding="utf-8").splitlines()
     lines.insert(line_number, new_line)
-    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    Path(_root, path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 def delete_line(
     path: Annotated[str, "Path to file"],
     line_number: Annotated[int, "Line number to delete"]
 ) -> None:
     """Delete line *line_number* (0-indexed) from file *path*."""
-    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    lines = Path(_root, path).read_text(encoding="utf-8").splitlines()
     if not (0 <= line_number < len(lines)):
         raise IndexError("Line number out of range")
     del lines[line_number]
-    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    Path(_root, path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 # ───────────────────────────────────────── Issue helpers ───────────────
 
