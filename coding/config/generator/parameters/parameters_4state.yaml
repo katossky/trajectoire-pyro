@@ -1,0 +1,47 @@
+generation:
+  max_career_years: 100
+  simulation_year_start: 2020
+  start_age_max: 65
+  start_age_min: 18
+income_distribution:
+  lognormal_parameters:
+    mean: 3.8
+    std: 0.8
+model_name: 4_state_career_model
+mortality:
+  age_specific:
+    aging_factor: 0.001
+    base_rate: 0.005
+    max_age: 100
+    min_age: 18
+state_mapping:
+  deceased: 3
+  employed: 1
+  inactive: 0
+  retired: 2
+states:
+- inactive
+- employed
+- retired
+- deceased
+transition_matrix:
+  from_deceased:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+  from_employed:
+  - 0.15
+  - 0.65
+  - 0.15
+  - 0.05
+  from_inactive:
+  - 0.7
+  - 0.25
+  - 0.0
+  - 0.05
+  from_retired:
+  - 0.0
+  - 0.0
+  - 0.9
+  - 0.1
