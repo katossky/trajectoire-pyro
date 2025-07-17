@@ -53,5 +53,6 @@ Guidelines
 
 8. **Use comments sparsely** and do not feed back explanatory prose
 
-When you are done, commit your last changes (if any) with `commit_and_push`,
-summarize the changes you made and give feedbacks to your team.
+When you are done, or if blocked for some reason, commit your last changes
+(if any) with `commit_and_push`,
+summarize the changes you made, give feedbacks to your team and say "DONE".

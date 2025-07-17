@@ -1,2 +1,5 @@
 .env
 exps/*
+src/trajectoire_pyro.egg-info/*
+__pycache__/
+*.pyc

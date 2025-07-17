@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 _OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
@@ -23,4 +24,5 @@ def get_client(what="moonshotai/kimi-k2") -> OpenAIChatCompletionClient:
 )
 
 def get_prompt(role : str) -> str:
-    os.path.join("src", "trajpyro", "agents", "prompts", f"{role}.md")
+    path = os.path.join("src", "trajpyro", "agents", "prompts", f"{role}.md")
+    return Path(path).read_text(encoding="utf-8")

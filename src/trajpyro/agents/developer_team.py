@@ -38,6 +38,7 @@ from .tools import (
 
 manager = AssistantAgent(
     name = "manager",
+    description = "the overall planner",
     model_client = get_client(),
     model_client_stream=True,
     system_message = get_prompt("manager"),
@@ -61,6 +62,7 @@ manager = AssistantAgent(
 
 coder = AssistantAgent(
     name = "coder",
+    description = "the skilful coder",
     model_client = get_client(),
     model_client_stream=True,
     system_message = get_prompt("coder"),
@@ -79,6 +81,7 @@ coder = AssistantAgent(
 
 tester = AssistantAgent(
     name = "tester",
+    description = "the relentless tester",
     model_client = get_client(),
     model_client_stream=True,
     system_message = get_prompt("tester"),
@@ -99,6 +102,22 @@ team = SelectorGroupChat(
     participants=[manager, coder, tester],
     allow_repeated_speaker=True,
     model_client = get_client("moonshotai/kimi-k2:free"),
+    selector_prompt = """Select an agent to perform next among :
+    {roles}
+
+    After reading the following conversation :
+    {history}
+
+    ... select an agent from {participants} to perform next.
+    
+    As a rule keep the manager writing unless they explicitly assign
+    a task to a specific other agent.
+    Then keep that agent speaking until they finish the
+    task and write "DONE",
+    At that moment give the way back to the manager.
+    
+    Always select one and only one agent.
+    """,
     termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(100)
 )
 

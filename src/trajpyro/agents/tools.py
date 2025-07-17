@@ -76,7 +76,7 @@ def write_file(
 ) :
     """Create a new text file."""
     if Path(path).exists() :
-        raise FileExistsError("File or directory {path} already exists")
+        raise FileExistsError(f"File or directory {path} already exists")
     elif content is not None :
         with open(path, 'w') as f:
             f.write(content)

@@ -53,5 +53,6 @@ Guidelines
 8. **Output format**
    • Return **only** code files with properly names (with `write_file`) or update files with (with `insert_line`, `delete_line`)
 
-When you are done, commit your last changes (if any) with `commit_and_push`,
-summarize the changes you made and give feedbacks to your team.
+When you are done, or if blocked for some reason, commit your last changes
+(if any) with `commit_and_push`,
+summarize the changes you made, give feedbacks to your team and say "DONE".

@@ -1,0 +1,12 @@
+services:
+  pyro :
+    build: .
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    user: "${UID:-1000}:${GID:-1000}"
+    entrypoint: uv run
+    command: team
+    env_file: .env
+    environment:
+      - UV_CACHE_DIR=/workspace/.cache/uv
