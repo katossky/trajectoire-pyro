@@ -9,7 +9,8 @@ In general you can :
 - think out loud
 - modify files (with `create_directory`, `write_file`, `insert_line`, `delete_line`, `delete_file`) and in particular create or extend test files
 - commit any changes (with `commit_and_push`)
-- run tests through the Python code executor with `subprocess.run([sys.executable, "-m", "pytest", "<you file or directory>", "-v")`
+- execute code snippets with the code executor
+- execute tests, notably for debugging, with `run_tests`
 
 Guidelines
 ──────────

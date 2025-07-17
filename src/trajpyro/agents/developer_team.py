@@ -59,10 +59,12 @@ from .tools import (
     open_pull_request,
     delete_file,
     diff,
-    commit_and_push,
+    commit_and_push_factory,
     insert_line,
     delete_line,
     create_and_switch_branch,
+    run_tests,
+    run_module
 )
 
 # advisor
@@ -73,7 +75,7 @@ from .tools import (
 # --> at the end, make sure everything is documented and add what's new to news.md
 
 coder_base = AssistantAgent(
-    name = "coder_base",
+    name = "coder",
     description = "skilful coder",
     model_client = get_client(),
     model_client_stream=True,
@@ -86,8 +88,9 @@ coder_base = AssistantAgent(
         create_directory,
         write_file,
         delete_file,
-        commit_and_push,
-        PythonCodeExecutionTool(LocalCommandLineCodeExecutor(work_dir="coding")),
+        commit_and_push_factory("ai-coder"),
+        run_module,
+        PythonCodeExecutionTool(LocalCommandLineCodeExecutor()),
     ],
 )
 
@@ -97,7 +100,7 @@ coder = RoundRobinGroupChat(
 )
 
 tester_base = AssistantAgent(
-    name = "tester_base",
+    name = "tester",
     description = "relentless tester",
     model_client = get_client(),
     model_client_stream=True,
@@ -110,8 +113,9 @@ tester_base = AssistantAgent(
         delete_file,
         write_file,
         insert_line,
-        commit_and_push,
-        PythonCodeExecutionTool(LocalCommandLineCodeExecutor(work_dir="coding")),
+        commit_and_push_factory("ai-tester"),
+        run_tests,
+        PythonCodeExecutionTool(LocalCommandLineCodeExecutor()),
     ],
 )
 
@@ -139,7 +143,7 @@ manager = AssistantAgent(
         comment_issue,
         open_pull_request,
         diff,
-        commit_and_push,
+        commit_and_push_factory("ai-project-manager"),
         create_and_switch_branch,
         TeamTool(coder, "coder", "your team member for coding tasks"),
         TeamTool(tester, "tester", "your team member for testing tasks"),
@@ -148,7 +152,7 @@ manager = AssistantAgent(
 
 devloper_team = RoundRobinGroupChat(
     [manager],
-    termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(200),
+    termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(200) | ConsecutiveEmptyTermination(n=2),
 )
 
 # ------------------------------------------------------------

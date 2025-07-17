@@ -1,6 +1,7 @@
 import os
+import sys
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Callable
 from typing_extensions import Annotated
 
 from github import Github, Issue
@@ -19,6 +20,13 @@ for parent in (p, *p.parents):
 
 if _root is None :
     raise RuntimeError("Cannot locate the project root")
+
+def get_absolute_path(path):
+    if path == "" or path is None :
+        path = Path(_root)
+    else :
+        path = Path(_root, path)
+    return path
 
 # ---------------------------------------------------------------------------
 # Initialise GitHub handle ----------------------------------------------------
@@ -51,10 +59,7 @@ def list_directories(
     path: Annotated[str, "Directory path relative to root"] = None
 ) -> List[str]:
     """Return directories inside *path* (non-recursive)."""
-    if path == "" or path is None :
-        path = Path(_root)
-    else :
-        path = Path(_root, path)
+    path = get_absolute_path(path)
     paths = [Path(path, p) for p in os.listdir(path)]
     dirs = [str(p.relative_to(path)) for p in paths if p.is_dir()]
     return [d for d in dirs if not d.startswith(".")]
@@ -245,13 +250,27 @@ def diff(
         args.append(path)
     return subprocess.check_output(args).decode()
 
-def commit_and_push(
-    user: Annotated[str, "Git user name for the commit"],
-    message: Annotated[str, "Commit message"]
-) -> None:
-    """Commit all changes and push them with *user* as the author."""
-    subprocess.check_call(["git", "config", "user.name", user])
-    subprocess.check_call(["git", "config", "user.email", f"{user}@users.noreply.github.com"])
-    subprocess.check_call(["git", "add", "."])
-    subprocess.check_call(["git", "commit", "-m", message])
-    subprocess.check_call(["git", "push"])
+def commit_and_push_factory(user: Annotated[str, "Git user name for the commit"]) -> Callable[[str], None] :
+    def commit_and_push(message: Annotated[str, "Commit message"]) -> None:
+        """Commit all changes and push them with *user* as the author."""
+        subprocess.check_call(["git", "config", "user.name", user])
+        subprocess.check_call(["git", "config", "user.email", f"{user}@users.noreply.github.com"])
+        subprocess.check_call(["git", "add", "."])
+        subprocess.check_call(["git", "commit", "-m", message])
+        subprocess.check_call(["git", "push"])
+    return commit_and_push
+
+# ----------- running helpers ----------------------------
+
+def run_module(
+    module: Annotated[str, "module path"],
+    *args: Annotated[str, "additional CLI arguments"],
+) :
+    """Run module *module*, possibly with arguments"""
+    cmd: list[str] = [sys.executable, module, *map(str, args)]
+    subprocess.run(cmd, check=True)
+
+def run_tests(path: Annotated[str, "test dir or test file path"] = "tests") :
+    """Run the test suite for **path** dir or file"""
+    path = get_absolute_path(path)
+    subprocess.run([sys.executable, "-m", "pytest", path])
