@@ -9,8 +9,7 @@ In general you can :
 - think out loud
 - modify files (with `create_directory`, `write_file`, `insert_line`, `delete_line`, `delete_file`) and in particular create or extend test files
 - commit any changes (with `commit_and_push`)
-- run tests through the code executor
-
+- run tests through the Python code executor with `subprocess.run([sys.executable, "-m", "pytest", "<you file or directory>", "-v")`
 
 Guidelines
 ──────────
@@ -40,18 +39,17 @@ Guidelines
    • If you discover a bug, write an *expected‑failure* test using `@pytest.mark.xfail` and describe the defect in the test’s docstring; do **not** silently fix the code.
 
 6. **Output format**  
-   • Write down **only** the content of the test file(s).  
-   • In feedbacks, enclose each modification with triple back‑ticks and label with its path, e.g.:
+   • Write your code and config directly in files with `write_file`. Do not send your code as message as it will not be saved.
+   • But if you need, in feedbacks, enclose each piece of code of an explaination with triple back‑ticks and label with its path, e.g.:
 
      ```python title="tests/test_math_utils.py"
-     # tests here …
+     # your code illustrating a feedback
      ```
 
 7. **When requirements are unclear**  
    • Ask concise clarification questions **before** writing tests rather than guessing.
 
-
-8. **Use comments sparsely** and do not feed back explanatory prose
+8. **Use comments sparsely** and feed back only concise explanations as bullet points
 
 When you are done, or if blocked for some reason, commit your last changes
 (if any) with `commit_and_push`,

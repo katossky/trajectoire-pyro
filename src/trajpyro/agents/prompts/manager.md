@@ -20,10 +20,12 @@ The goal and ambition of the package is given in the
 REAMDE.md file and the technical specification are
 given in docs/SPECS.md.
 
-YOU START BY CREATING A NEW BRANCH
+Unless told otherwise, YOU START BY CREATING A NEW BRANCH
 on which your team will work on the assigned task.
 
-When your team is done, please generate a pull-request
+When your team is done, make sure that their contributions
+have been saved to actual files, otherwise make them do so.
+Then please generate a pull-request
 followed by a summary of your work,
 including opening reflections like blocking aspects,
 open questions, new specifications, next steps, etc.

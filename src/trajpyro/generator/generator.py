@@ -89,29 +89,73 @@ class CareerGenerator:
                 params['transition_from_retired']['to_deceased']
             ]
             
-        else:  # From deceased
+        else:  # From deceased (3)
             probs = [0.0, 0.0, 0.0, 1.0]
         
         # Adjust mortality based on age using Gompertz model
-        if age > 0:
+        if current_state != 3:  # Only adjust for non-deceased states
             base_rate = params['mortality_params']['base_mortality']
             age_factor = params['mortality_params']['age_exponent']
             age_mortality = base_rate * np.exp(age_factor * (age - 25))
             
-            if current_state == 0:
-                probs[-1] = min(probs[-1] + age_mortality, 0.5)
-                probs[:-1] = [p * (1 - probs[-1]) / sum(probs[:-1]) for p in probs[:-1]]
-            elif current_state == 1:
-                probs[-1] = min(probs[-1] + age_mortality * 0.8, 0.3)  # Lower for workers
-                probs[:-1] = [p * (1 - probs[-1]) / sum(probs[:-1]) for p in probs[:-1]]
-            elif current_state == 2:
-                probs[-1] = min(probs[-1] + age_mortality * 1.5, 0.9)  # Higher for retirees
-                probs[:-1] = [p * (1 - probs[-1]) / sum(probs[:-1]) for p in probs[:-1]]
+            if current_state == 0:  # inactive
+                mortality_prob = age_mortality
+                probs = [
+                    params['transition_from_inactive']['to_inactive'],
+                    params['transition_from_inactive']['to_employed'],
+                    params['transition_from_inactive']['to_retired'],
+                    params['transition_from_inactive']['to_deceased'] + mortality_prob
+                ]
+            elif current_state == 1:  # employed
+                mortality_prob = 0.8 * age_mortality  # Lower mortality for employed
+                probs = [
+                    params['transition_from_employed']['to_inactive'],
+                    params['transition_from_employed']['to_employed'],
+                    params['transition_from_employed']['to_retired'],
+                    params['transition_from_employed']['to_deceased'] + mortality_prob
+                ]
+            elif current_state == 2:  # retired
+                mortality_prob = 1.5 * age_mortality  # Higher mortality for retired
+                probs = [
+                    params['transition_from_retired']['to_inactive'],
+                    params['transition_from_retired']['to_employed'],
+                    params['transition_from_retired']['to_retired'],
+                    params['transition_from_retired']['to_deceased'] + mortality_prob
+                ]
         
-        # Ensure probabilities sum to 1
-        probs = torch.tensor(probs, dtype=torch.float32)
-        probs = probs / probs.sum()
-        return probs
+        # Convert to tensor and ensure exact normalization (sum to exactly 1.0)
+        probs = np.array(probs, dtype=np.float64)
+        
+        # Handle any negative probabilities (safety check)
+        probs = np.maximum(probs, 0.0)
+        
+        # Normalize to sum to exactly 1.0 using double precision
+        total = probs.sum()
+        if total > 0:
+            probs = probs / total
+        else:
+            # Fallback: if somehow we get zero probabilities, use uniform
+            probs = np.array([0.25, 0.25, 0.25, 0.25])
+        
+        # Convert to tensor and verify normalization at float precision
+        probs_tensor = torch.tensor(probs, dtype=torch.float32)
+        
+        # Ensure exact sum to 1.0 within float precision tolerance
+        # Use a more precise approach for float32
+        total_sum = probs_tensor.sum()
+        if abs(float(total_sum) - 1.0) > 1e-6:
+            # Perfectly normalize
+            normalized = probs_tensor / total_sum
+            # Final check
+            final_sum = float(normalized.sum())
+            # Handle remaining tiny float precision issues
+            if abs(final_sum - 1.0) > 1e-7:
+                # Perfect normalization to exactly 1.0
+                normalized = normalized.clone()
+                normalized[-1] = 1.0 - normalized[:-1].sum()
+            probs_tensor = normalized
+        
+        return probs_tensor
     
     def _sample_income(self, age: int, state: int) -> float:
         """
@@ -138,13 +182,13 @@ class CareerGenerator:
         mean_log += age_bonus
         
         # Sample income using Pyro distribution
-        income_log = pyro.sample(
-            "income_log",
-            dist.Normal(mean_log, std_log)
+        income_dist = dist.LogNormal(mean_log, std_log)
+        income = pyro.sample(
+            f"income_{age}_{state}",
+            income_dist
         )
         
         # Ensure non-negative income
-        income = torch.exp(income_log)
         return max(float(income), 0.0)
     
     def generate_career(self, person_id: int) -> List[Dict]:
@@ -158,69 +202,69 @@ class CareerGenerator:
             List of dictionaries with career data for each year
         """
         initial_probs = self.parameters['initial_state_probs']
-        states = [0, 1, 2, 3]
         
-        # Sample initial state
+        # Use Categorical distribution for proper initial state sampling
+        state_probs = torch.tensor([
+            initial_probs['inactive'],
+            initial_probs['employed'],
+            initial_probs['retired'],
+            initial_probs['deceased']
+        ], dtype=torch.float32)
+        
+        # Sample initial state using Pyro (avoiding person_id in key)
         initial_state = pyro.sample(
-            f"initial_state_{person_id}",
-            dist.Categorical(torch.tensor([
-                initial_probs['inactive'],
-                initial_probs['employed'],
-                initial_probs['retired'],
-                initial_probs['deceased']
-            ]))
+            f"initial_state",
+            dist.Categorical(state_probs)
         ).item()
         
         # Initialize career
         career_data = []
         current_state = initial_state
-        age = self.parameters['age_params']['min_age']
- 
-        while age <= self.parameters['age_params']['death_age']:
-            # Handle deceased state
+        min_age = self.parameters['age_params']['min_age']
+        death_age = self.parameters['age_params']['death_age']
+        
+        # Age range should be inclusive: min_age TO death_age
+        for age in range(min_age, death_age + 1):
+            
+            # Handle deceased state before sampling income
             if current_state == 3:
-                # Deceased stays deceased - pad remaining years with income = 0
-                for remaining_age in range(age, self.parameters['age_params']['death_age'] + 1):
-                    career_data.append({
-                        'person_id': person_id,
-                        'year': 2020 + (remaining_age - self.parameters['age_params']['min_age']),
-                        'age': remaining_age,
-                        'state': current_state,
-                        'income': 0.0
-                    })
-                break
+                income = 0.0
+            else:
+                income = self._sample_income(age, current_state)
             
-            # Sample income
-            income = self._sample_income(age, current_state)
-            
-            # Record current year
+            # Record current year data
             career_data.append({
                 'person_id': person_id,
-                'year': 2020 + (age - self.parameters['age_params']['min_age']),
+                'year': 2020 + (age - min_age),
                 'age': age,
                 'state': current_state,
                 'income': income
             })
             
-            # Sample next state
-            probs = self._get_transition_probs(current_state, age)
-            current_state = pyro.sample(
-                f"transition_{person_id}_{age}",
-                dist.Categorical(probs)
-            ).item()
+            # If we're at the final age (death_age), we're done
+            if age == death_age:
+                break
+                
+            # Sample next state for next year (if not already deceased)
+            if current_state != 3:
+                probs = self._get_transition_probs(current_state, age)
+                next_state = pyro.sample(
+                    f"_transition_",
+                    dist.Categorical(probs)
+                ).item()
+                current_state = next_state
             
-            age += 1
-            
-            # Stop if deceased
-            if current_state == 3 and age <= self.parameters['age_params']['death_age']:
-                # Record final year as deceased
-                career_data.append({
-                    'person_id': person_id,
-                    'year': 2020 + (age - self.parameters['age_params']['min_age']),
-                    'age': age,
-                    'state': 3,
-                    'income': 0.0
-                })
+            # Handle deceased state transition 
+            if current_state == 3 and age + 1 <= death_age:
+                # Fill remaining years with deceased state
+                for remaining_age in range(age + 1, death_age + 1):
+                    career_data.append({
+                        'person_id': person_id,
+                        'year': 2020 + (remaining_age - min_age),
+                        'age': remaining_age,
+                        'state': 3,
+                        'income': 0.0
+                    })
                 break
         
         return career_data
@@ -245,8 +289,8 @@ class CareerGenerator:
         all_careers = []
         
         for i in range(n_individuals):
-            if verbose and i % 1000 == 0:
-                print(f"Generating careers... {i}/{n_individuals}")
+            if verbose and i > 0 and i % 1000 == 0:
+                print(f"Generating careers... ({i}/{n_individuals})")
             
             career = self.generate_career(i + 1)
             all_careers.extend(career)
@@ -256,10 +300,14 @@ class CareerGenerator:
         
         # Convert state to categorical for clarity
         state_names = ["inactive", "employed", "retired", "deceased"]
-        df['state_name'] = df['state'].map({i: name for i, name in enumerate(state_names)})
+        df['state_name'] = df['state'].map(dict(zip(range(4), state_names)))
+        
+        # Sort by person and age for consistency
+        df = df.sort_values(['person_id', 'age']).reset_index(drop=True)
         
         # Save output
         output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(output_path, index=False)
         
         if verbose:
@@ -277,7 +325,8 @@ class CareerGenerator:
         print(f"Age range: {df['age'].min()}-{df['age'].max()}")
         
         print("\nState distribution:")
-        print(df['state_name'].value_counts().to_string())
+        state_counts = df['state_name'].value_counts().sort_index()
+        print(state_counts.to_string())
         
         employment_df = df[df['state'] == 1]
         if len(employment_df) > 0:
@@ -285,73 +334,6 @@ class CareerGenerator:
             print(f"  Median: ${employment_df['income'].median():,.0f}")
             print(f"  Mean: ${employment_df['income'].mean():,.0f}")
             print(f"  Std: ${employment_df['income'].std():,.0f}")
-    
-    def generate_validation_report(self, df: pd.DataFrame) -> Dict:
-        """
-        Generate validation report comparing synthetic data to expected parameters.
-        
-        Args:
-            df: Generated dataset
-            
-        Returns:
-            Dictionary with comparison metrics
-        """
-        params = self.parameters
-        
-        # Calculate empirical transition rates
-        def calculate_transitions(state_from: int, state_to: int) -> float:
-            mask = df['state'] == state_from
-            prev_states = df[mask]
-            if len(prev_states) == 0:
-                return 0.0
-            
-            # Find next states for these individuals
-            next_states = []
-            for pid in prev_states['person_id'].unique():
-                pid_data = df[df['person_id'] == pid]
-                transitions_idx = pid_data[pid_data['state'] == state_from].index
-                for idx in transitions_idx:
-                    if idx + 1 < len(df) and df.loc[idx + 1, 'person_id'] == pid:
-                        next_states.append(df.loc[idx + 1, 'state'])
-            
-            if not next_states:
-                return 0.0
-            
-            return sum(1 for s in next_states if s == state_to) / len(next_states)
-        
-        # Create validation report
-        report = {
-            'empirical_transition_rates': {},
-            'expected_income': {},
-            'empirical_income': {},
-            'coverage_summary': {}
-        }
-        
-        # Add transition rate comparisons
-        for from_state in range(4):
-            for to_state in range(4):
-                if from_state == 0:
-                    param_key = f"transition_from_from_{['inactive', 'employed', 'retired', 'deceased'][from_state]}"
-                    if param_key in params:
-                        report['empirical_transition_rates'][f"{from_state}_{to_state}"] = {
-                            'empirical': calculate_transitions(from_state, to_state),
-                            'expected': params['transition_from_' + ['inactive', 'employed', 'retired', 'deceased'][from_state]][f"to_{['inactive', 'employed', 'retired', 'deceased'][to_state]}"]
-                        }
-        
-        # Income statistics
-        emp_data = df[df['state'] == 1]
-        if len(emp_data) > 0:
-            report['empirical_income'] = {
-                'median': float(emp_data['income'].median()),
-                'mean': float(emp_data['income'].mean()),
-                'std': float(emp_data['income'].std())
-            }
-            report['expected_income'] = {
-                'median': np.exp(params['income_params']['lognormal_mean']),
-                'expected_distribution': 'log-normal'
-            }
-        
-        return report
 
 
 def main():
@@ -367,22 +349,11 @@ def main():
                         help="Output file path")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed")
-    parser.add_argument("--validate", action="store_true",
-                        help="Generate validation report")
     
     args = parser.parse_args()
     
     generator = CareerGenerator(args.config, seed=args.seed)
     df = generator.generate_dataset(args.n_people, args.output)
-    
-    if args.validate:
-        report = generator.generate_validation_report(df)
-        
-        # Save validation report
-        val_file = args.output.replace('.csv', '_validation.json')
-        with open(val_file, 'w') as f:
-            json.dump(report, f, indent=2, default=str)
-        print(f"Validation report saved to {val_file}")
     
     return df
 

@@ -3,9 +3,10 @@ import asyncio
 import argparse
 
 from autogen_agentchat.agents import AssistantAgent
-from autogen_agentchat.teams import SelectorGroupChat
+from autogen_agentchat.teams import RoundRobinGroupChat
 from autogen_agentchat.ui import Console
 from autogen_agentchat.conditions import MaxMessageTermination, TextMentionTermination
+from autogen_agentchat.tools import TeamTool
 from autogen_ext.code_executors.local import LocalCommandLineCodeExecutor
 from autogen_ext.tools.code_execution import PythonCodeExecutionTool
 
@@ -36,6 +37,54 @@ from .tools import (
 # documentarian
 # --> at the end, make sure everything is documented and add what's new to news.md
 
+coder_base = AssistantAgent(
+    name = "coder_base",
+    description = "skilful coder",
+    model_client = get_client(),
+    model_client_stream=True,
+    system_message = get_prompt("coder"),
+    tools = [
+        list_directories,
+        list_files,
+        read_file,
+        insert_line,
+        create_directory,
+        write_file,
+        delete_file,
+        commit_and_push,
+        PythonCodeExecutionTool(LocalCommandLineCodeExecutor(work_dir="coding")),
+    ],
+)
+
+coder = RoundRobinGroupChat(
+    [coder_base],
+    termination_condition = TextMentionTermination("DONE") | MaxMessageTermination(50),
+)
+
+tester_base = AssistantAgent(
+    name = "tester_base",
+    description = "relentless tester",
+    model_client = get_client(),
+    model_client_stream=True,
+    system_message = get_prompt("tester"),
+    tools = [
+        list_directories,
+        list_files,
+        read_file,
+        create_directory,
+        delete_file,
+        write_file,
+        insert_line,
+        commit_and_push,
+        PythonCodeExecutionTool(LocalCommandLineCodeExecutor(work_dir="coding")),
+    ],
+)
+
+tester = RoundRobinGroupChat(
+    [tester_base],
+    termination_condition = TextMentionTermination("DONE") | MaxMessageTermination(50),
+)
+
 manager = AssistantAgent(
     name = "manager",
     description = "the overall planner",
@@ -56,69 +105,15 @@ manager = AssistantAgent(
         open_pull_request,
         diff,
         commit_and_push,
-        create_and_switch_branch
+        create_and_switch_branch,
+        TeamTool(coder, "coder", "your team member for coding tasks"),
+        TeamTool(tester, "tester", "your team member for testing tasks"),
     ],
 )
 
-coder = AssistantAgent(
-    name = "coder",
-    description = "the skilful coder",
-    model_client = get_client(),
-    model_client_stream=True,
-    system_message = get_prompt("coder"),
-    tools = [
-        list_directories,
-        list_files,
-        read_file,
-        insert_line,
-        create_directory,
-        write_file,
-        delete_file,
-        commit_and_push,
-        PythonCodeExecutionTool(LocalCommandLineCodeExecutor(work_dir="coding")),
-    ],
-)
-
-tester = AssistantAgent(
-    name = "tester",
-    description = "the relentless tester",
-    model_client = get_client(),
-    model_client_stream=True,
-    system_message = get_prompt("tester"),
-    tools = [
-        list_directories,
-        list_files,
-        read_file,
-        create_directory,
-        delete_file,
-        write_file,
-        insert_line,
-        commit_and_push,
-        PythonCodeExecutionTool(LocalCommandLineCodeExecutor(work_dir="coding")),
-    ],
-)
-
-team = SelectorGroupChat(
-    participants=[manager, coder, tester],
-    allow_repeated_speaker=True,
-    model_client = get_client("moonshotai/kimi-k2:free"),
-    selector_prompt = """Select an agent to perform next among :
-    {roles}
-
-    After reading the following conversation :
-    {history}
-
-    ... select an agent from {participants} to perform next.
-    
-    As a rule keep the manager writing unless they explicitly assign
-    a task to a specific other agent.
-    Then keep that agent speaking until they finish the
-    task and write "DONE",
-    At that moment give the way back to the manager.
-    
-    Always select one and only one agent.
-    """,
-    termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(100)
+devloper_team = RoundRobinGroupChat(
+    [manager],
+    termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(100),
 )
 
 # ------------------------------------------------------------
@@ -127,7 +122,7 @@ team = SelectorGroupChat(
 
 async def run(task):
     await Console(
-        team.run_stream(task=task),
+        devloper_team.run_stream(task=task),
         output_stats=True
     )
 
