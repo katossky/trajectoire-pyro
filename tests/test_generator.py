@@ -179,8 +179,8 @@ class TestIntegrationTests:
         # Once deceased, remain deceased
         deceased_mask = df["state"] == 3
         if deceased_mask.any():
-            first_dead_ix = deceased_mask.idxmax()
-            assert (df.loc[first_dead_ix:, "state"] == 3).all()
+            first_deceased_idx = deceased_mask.idxmax()
+            assert (df.loc[first_deceased_idx:, "state"] == 3).all()
 
     def test_single_career_structure(self, generator):
         """A full career has expected keys."""
@@ -326,5 +326,5 @@ class TestEdgeCases:
         if deceased_mask.any():
             first_deceased_idx = deceased_mask.idxmax()
             # All subsequent states should be deceased (3)
-            subsequent_states = df.loc[first_dead_ix:, "state"]
+            subsequent_states = df.loc[first_deceased_idx:, "state"]
             assert (subsequent_states == 3).all()
