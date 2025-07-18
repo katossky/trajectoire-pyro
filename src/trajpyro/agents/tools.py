@@ -272,4 +272,4 @@ def run_module(
 def run_tests(path: Annotated[str, "test dir or test file path"] = "tests") :
     """Run the test suite for **path** dir or file"""
     path = get_absolute_path(path)
-    subprocess.run([sys.executable, "-m", "pytest", path])
+    subprocess.run([sys.executable, "-m", "pytest", path], check=True)
