@@ -92,10 +92,11 @@ def create_directory(
 
 def write_file(
     path: Annotated[str, "File path relative to root"] = None,
-    content: Annotated[str, "Content of the file"] = None
+    content: Annotated[str, "Content of the file"] = None,
+    force: Annotated[bool, "Replace existing file ?"] = False
 ) :
     """Create a new text file."""
-    if Path(_root, path).exists() :
+    if Path(_root, path).exists() and not force:
         raise FileExistsError(f"File or directory {path} already exists")
     elif content is not None :
         with Path(_root, path).open('w') as f:

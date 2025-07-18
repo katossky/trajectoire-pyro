@@ -263,9 +263,17 @@ class TestStatisticalValidation:
         probs = [0.2, 0.7, 0.1, 0.0]
         expected = np.array(probs) * n_sample
 
-        # Allow some tolerance for random variation
-        for observed, expected_count in zip(counts, expected):
-            assert abs(observed - expected_count) < np.sqrt(expected_count) * 4  # 4 std devs
+        # Use soft assertions and skip zero-probability states
+        for idx, (observed, expected_count) in enumerate(zip(counts, expected)):
+            if expected_count > 0:
+                # Allow some tolerance for random variation
+                tolerance = max(np.sqrt(expected_count) * 4, 1)  # minimum 1 for small N
+                assert abs(observed - expected_count) < tolerance, \
+                    f"State {idx}: observed {observed}, expected {expected_count}"
+            else:
+                # For zero-probability states, expect exactly zero observations
+                assert observed == 0, \
+                    f"Zero-probability state {idx} was observed, but got {observed}"
 
 
 # --- Edge Case Tests ---
@@ -318,5 +326,5 @@ class TestEdgeCases:
         if deceased_mask.any():
             first_deceased_idx = deceased_mask.idxmax()
             # All subsequent states should be deceased (3)
-            subsequent_states = df.loc[first_deceased_idx:, "state"]
+            subsequent_states = df.loc[first_dead_ix:, "state"]
             assert (subsequent_states == 3).all()
