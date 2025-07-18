@@ -267,7 +267,17 @@ def run_module(
     args: Annotated[list[str], "additional arguments"] = [],
 ) :
     """Run module *module*, possibly with arguments"""
-    subprocess.run([sys.executable, "-m", module] + args, check=True)
+    completed = subprocess.run(
+        [sys.executable, "-m", module] + args,
+        check=True,
+        stdout=subprocess.PIPE,            # capture
+        stderr=subprocess.STDOUT,          # merge the two streams
+        text=True,                         # decode to str
+    )
+    return {
+        "exit_code": completed.returncode,
+        "output": completed.stdout,
+    }
 
 def run_tests(
     path: Annotated[str, "test dir or test file path"] = "tests",
