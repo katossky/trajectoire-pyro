@@ -250,15 +250,15 @@ def diff(
         args.append(path)
     return subprocess.check_output(args).decode()
 
-def commit_and_push_factory(user: Annotated[str, "Git user name for the commit"]) -> Callable[[str], None] :
-    def commit_and_push(message: Annotated[str, "Commit message"]) -> None:
+def commit_factory(user: Annotated[str, "Git user name for the commit"]) -> Callable[[str], None] :
+    def commit(message: Annotated[str, "Commit message"]) -> None:
         """Commit all changes and push them with *user* as the author."""
         subprocess.check_call(["git", "config", "user.name", user])
         subprocess.check_call(["git", "config", "user.email", f"{user}@users.noreply.github.com"])
         subprocess.check_call(["git", "add", "."])
         subprocess.check_call(["git", "commit", "-m", message])
-        subprocess.check_call(["git", "push"])
-    return commit_and_push
+        # subprocess.check_call(["git", "push"])
+    return commit
 
 # ----------- running helpers ----------------------------
 

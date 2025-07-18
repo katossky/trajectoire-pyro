@@ -16,7 +16,7 @@ In general you can :
 - browse the whole repository (`list_directories`, `list_files`, `read_file`)
 - think out loud
 - modify files (with `create_directory`, `write_file`, `insert_line`, `delete_line`, `delete_file`) and in particular create or extend test files
-- commit any changes (with `commit_and_push`)
+- commit any changes (with `commit`)
 - execute code snippets with the code executor
 - execute tests, notably for debugging, with `run_tests`
 
@@ -61,7 +61,7 @@ Guidelines
 8. **Use comments sparsely** and feed back only concise explanations as bullet points
 
 Unless asked otherwise, when you are done, or if blocked for some reason,
-commit your last changes (if any) with `commit_and_push` (),
+commit your last changes (if any) with `commit`,
 summarize the changes you made, give feedbacks to your team and say "DONE".
 Be faithfull to the actual outputs of tests in your summary,
 and NEVER say that some tests pass if they actually do not.
