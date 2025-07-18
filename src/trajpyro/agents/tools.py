@@ -269,7 +269,20 @@ def run_module(
     """Run module *module*, possibly with arguments"""
     subprocess.run([sys.executable, "-m", module] + args, check=True)
 
-def run_tests(path: Annotated[str, "test dir or test file path"] = "tests") :
+def run_tests(
+    path: Annotated[str, "test dir or test file path"] = "tests",
+    args: Annotated[list[str], "additional arguments"] = [],
+) :
     """Run the test suite for **path** dir or file"""
     path = get_absolute_path(path)
-    subprocess.run([sys.executable, "-m", "pytest", path], check=True)
+    completed = subprocess.run(
+        [sys.executable, "-m", "pytest", path] + args,
+        check=True,
+        stdout=subprocess.PIPE,            # capture
+        stderr=subprocess.STDOUT,          # merge the two streams
+        text=True,                         # decode to str
+    )
+    return {
+        "exit_code": completed.returncode,
+        "output": completed.stdout,
+    }
