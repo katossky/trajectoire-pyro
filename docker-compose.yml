@@ -4,9 +4,11 @@ services:
     working_dir: /workspace
     volumes:
       - .:/workspace
+      # - /dev/null:/workspace/.venv
     user: "${UID:-1000}:${GID:-1000}"
     entrypoint: uv run
     command: team
     env_file: .env
     environment:
       - UV_CACHE_DIR=/workspace/.cache/uv
+      - UV_VENV=.venv-docker

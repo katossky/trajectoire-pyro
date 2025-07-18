@@ -15,7 +15,10 @@ RUN git config --global --add --bool push.autoSetupRemote true
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-install-project
 COPY . .
-RUN uv sync --locked
+# for deployment
+# RUN uv sync --locked
+# for developement (editable install)
+RUN uv pip install -e .
 
 # Optional: force PyTorch to skip MPS checks – avoids misleading warnings
 ENV PYTORCH_ENABLE_MPS_FALLBACK=1
